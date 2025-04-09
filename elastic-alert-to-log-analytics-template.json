@@ -1,0 +1,308 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "log_analytics_collector_name": {
+            "defaultValue": "azureloganalyticsdatacollector",
+            "type": "string"
+        },
+        "log_analytics_table_name": {
+            "defaultValue": "ElasticAlerts",
+            "type": "string"
+        }, 
+        "log_analytics_workspace_id": {
+            "defaultValue": "MY_WORKSPACE-ID-HERE",
+            "type": "string"
+        },
+        "log_analytics_workspace_key": {
+            "defaultValue": "MY-WORKSPACE-KEY-HERE",
+            "type": "securestring"
+        },
+        "workflows_example_elastic_sentinel_alert_name": {
+            "defaultValue": "example-elastic-sentinel-alert",
+            "type": "string"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[parameters('log_analytics_collector_name')]",
+            "location": "[resourceGroup().location]",
+            "kind": "V1",
+            "properties": {
+                "displayName": "Log Analytic Workspace Connector for Elastic Integration",
+                "statuses": [
+                    {
+                        "status": "Connected"
+                    }
+                ],
+                "customParameterValues": {},
+                "parameterValues": {
+                    "username": "[parameters('log_analytics_workspace_id')]",
+                    "password": "[parameters('log_analytics_workspace_key')]"
+                },
+                "api": {
+                    "name": "azureloganalyticsdatacollector",
+                    "displayName": "Azure Log Analytics Data Collector",
+                    "description": "Azure Log Analytics Data Collector will send data to any Azure Log Analytics workspace.",
+                    "iconUri": "https://conn-afd-prod-endpoint-bmc9bqahasf3grgk.b01.azurefd.net/releases/v1.0.1683/1.0.1683.3680/azureloganalyticsdatacollector/icon.png",
+                    "brandColor": "#0072C6",
+                    "type": "Microsoft.Web/locations/managedApis",
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/', 'azureloganalyticsdatacollector')]"
+                },
+                "testLinks": []
+            }
+        },
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('workflows_example_elastic_sentinel_alert_name')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": ["[ parameters('log_analytics_collector_name')]"],
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "When_a_HTTP_request_is_received": {
+                            "type": "Request",
+                            "kind": "Http",
+                            "inputs": {
+                                "method": "POST",
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "alert": {
+                                            "type": "object",
+                                            "properties": {
+                                                "actionGroup": {
+                                                    "type": "string"
+                                                },
+                                                "actionGroupName": {
+                                                    "type": "string"
+                                                },
+                                                "actionSubgroup": {
+                                                    "type": "string"
+                                                },
+                                                "consecutiveMatches": {
+                                                    "type": "integer"
+                                                },
+                                                "flapping": {
+                                                    "type": "boolean"
+                                                },
+                                                "id": {
+                                                    "type": "string"
+                                                },
+                                                "uuid": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        },
+                                        "context": {
+                                            "type": "object",
+                                            "properties": {
+                                                "alerts": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "results_link": {
+                                                    "type": "string"
+                                                },
+                                                "rule": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "description": {
+                                                            "type": "string"
+                                                        },
+                                                        "false_positives": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "filters": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "id": {
+                                                            "type": "string"
+                                                        },
+                                                        "investigation_fields": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "language": {
+                                                            "type": "string"
+                                                        },
+                                                        "max_signals": {
+                                                            "type": "integer"
+                                                        },
+                                                        "name": {
+                                                            "type": "string"
+                                                        },
+                                                        "output_index": {
+                                                            "type": "string"
+                                                        },
+                                                        "query": {
+                                                            "type": "string"
+                                                        },
+                                                        "references": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "response_actions": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "risk_score": {
+                                                            "type": "integer"
+                                                        },
+                                                        "rule_id": {
+                                                            "type": "string"
+                                                        },
+                                                        "saved_id": {
+                                                            "type": "string"
+                                                        },
+                                                        "severity": {
+                                                            "type": "string"
+                                                        },
+                                                        "threat": {
+                                                            "type": "string"
+                                                        },
+                                                        "timeline_id": {
+                                                            "type": "string"
+                                                        },
+                                                        "timeline_title": {
+                                                            "type": "string"
+                                                        },
+                                                        "type": {
+                                                            "type": "string"
+                                                        },
+                                                        "version": {
+                                                            "type": "integer"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "date": {
+                                            "type": "string"
+                                        },
+                                        "kibanaBaseUrl": {
+                                            "type": "string"
+                                        },
+                                        "rule": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string"
+                                                },
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "params": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "threshold": {
+                                                            "type": "integer"
+                                                        }
+                                                    }
+                                                },
+                                                "spaceId": {
+                                                    "type": "string"
+                                                },
+                                                "tags": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "url": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        },
+                                        "state": {
+                                            "type": "object",
+                                            "properties": {
+                                                "signals_count": {
+                                                    "type": "integer"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Response": {
+                            "runAfter": {
+                                "Send_Data": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                                "statusCode": 200,
+                                "headers": {
+                                    "Content-Type": "application/json"
+                                },
+                                "body": {}
+                            }
+                        },
+                        "Send_Data": {
+                            "runAfter": {},
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name":  "@parameters('$connections')['azureloganalyticsdatacollector']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "body": "@{triggerBody()}",
+                                "headers": {
+                                    "Log-Type":"[parameters('log_analytics_table_name')]"
+                                },
+                                "path": "/api/logs"
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "azureloganalyticsdatacollector": {
+                                "connectionId": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Web/connections/', parameters('log_analytics_collector_name'))]",
+                                "connectionName": "[parameters('log_analytics_collector_name')]",
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/azureloganalyticsdatacollector')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}

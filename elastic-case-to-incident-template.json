@@ -1,0 +1,405 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workflow_example_elastic_create_incident_name": {
+            "defaultValue": "example-elastic-create-incident",
+            "type": "string"
+        },
+        "workflow_example_elastic_get_incident_name": {
+            "defaultValue": "example-elastic-get-incident",
+            "type": "string"
+        },
+        "connections_azuresentinel_name": {
+            "defaultValue": "azuresentinel",
+            "type": "string"
+        },
+        "sentinel_workspace_name": {
+            "defaultValue": "MY-SENTINEL-WORKSPACE-NAME",
+            "type": "string"
+        },
+        "sentinel_workspace_resource_group": {
+            "defaultValue": "MY-SENTINEL-WORKSPACE-RESOURCE-GROUP-NAME",
+            "type": "string"
+        },
+        "sentinel_workspace_region": {
+            "defaultValue": "uksouth",
+            "type": "string"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[parameters('connections_azuresentinel_name')]",
+            "location": "[resourceGroup().location]",
+            "kind": "V1",
+            "properties": {
+                "displayName": "Microsoft Sentinel",
+                "statuses": [
+                    {
+                        "status": "Connected"
+                    }
+                ],
+                "customParameterValues": {},
+                "nonSecretParameterValues": {
+                    "token:tenantId": "[subscription().tenantId]",
+                    "token:grantType": "code"                },
+                "api": {
+                    "name": "[parameters('connections_azuresentinel_name')]",
+                    "displayName": "Microsoft Sentinel",
+                    "description": "Cloud-native SIEM with a built-in AI so you can focus on what matters most",
+                    "iconUri": "[concat('https://conn-afd-prod-endpoint-bmc9bqahasf3grgk.b01.azurefd.net/releases/v1.0.1727/1.0.1727.4021/', parameters('connections_azuresentinel_name'), '/icon.png')]",
+                    "brandColor": "#0072C6",
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('sentinel_workspace_region'), '/managedApis/azuresentinel')]",
+                    "type": "Microsoft.Web/locations/managedApis"
+                },
+                "testLinks": []
+            }
+        },
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/connections', parameters('connections_azuresentinel_name'))]"],
+            "name": "[parameters('workflow_example_elastic_create_incident_name')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "Incoming_request_from_Elastic_Security": {
+                            "type": "Request",
+                            "kind": "Http",
+                            "inputs": {
+                                "method": "POST",
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "action": {
+                                            "type": "string"
+                                        },
+                                        "case_id": {
+                                            "type": "string"
+                                        },
+                                        "case_title": {
+                                            "type": "string"
+                                        },
+                                        "case_severity": {
+                                            "type": "string"
+                                        },
+                                        "case_status": {
+                                            "type": "string"
+                                        },
+                                        "case_description": {
+                                            "type": "string"
+                                        },
+                                        "case_tags": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "case_comment": {
+                                            "type": "string"
+                                        },
+                                        "sentinel_incident_id": {
+                                            "type": "string"
+                                        },
+                                        "elastic_url_base": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            },
+                            "conditions": []
+                        }
+                    },
+                    "actions": {
+                        "Check_action": {
+                            "runAfter": {},
+                            "cases": {
+                                "Create_case_from_Elastic_Security": {
+                                    "case": "create-incident",
+                                    "actions": {
+                                        "Create_incident": {
+                                            "type": "ApiConnection",
+                                            "inputs": {
+                                                "host": {
+                                                    "connection": {
+                                                        "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                                    }
+                                                },
+                                                "method": "put",
+                                                "body": {
+                                                    "title": "@triggerBody()?['case_title']",
+                                                    "severity": "@if(equals(triggerBody()?['case_severity'], 'low'), 'informational', if(equals(triggerBody()?['case_severity'], 'medium'), 'low', if(equals(triggerBody()?['case_severity'], 'high'), 'medium', if(equals(triggerBody()?['case_severity'], 'critical'), 'high', triggerBody()?['case_severity']))))",
+                                                    "status": "New",
+                                                    "description": "Case URL = @{triggerBody()?['elastic_url_base']}@{triggerBody()?['case_id']}\n\n@{triggerBody()?['case_description']}"
+                                                },
+                                                "path": "[concat('/Incidents/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('sentinel_workspace_resource_group'), '/workspaces/', parameters('sentinel_workspace_name'))]"
+                                            }
+                                        },
+                                        "Create_incident_response": {
+                                            "runAfter": {
+                                                "Create_incident": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "Response",
+                                            "kind": "Http",
+                                            "inputs": {
+                                                "statusCode": 200,
+                                                "headers": {
+                                                    "Content-Type": "application/json"
+                                                },
+                                                "body": {
+                                                    "status": "success",
+                                                    "sentinel_incident_id": "@body('Create_incident')?['name']",
+                                                    "sentinel_incident_url": "@body('Create_incident')?['properties']?['incidentUrl']"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "Update_case_from_Elastic_Security": {
+                                    "case": "update-incident",
+                                    "actions": {
+                                        "Update_incident_response": {
+                                            "runAfter": {
+                                                "Switch": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "Response",
+                                            "kind": "Http",
+                                            "inputs": {
+                                                "statusCode": 200,
+                                                "headers": {
+                                                    "Content-Type": "application/json"
+                                                },
+                                                "body": {
+                                                    "title": "@body('Update_incident')?['properties']?['title']",
+                                                    "url": "@body('Update_incident')?['properties']?['incidentUrl']"
+                                                }
+                                            }
+                                        },
+                                        "Switch": {
+                                            "cases": {
+                                                "Case": {
+                                                    "case": "closed",
+                                                    "actions": {
+                                                        "Close_Incident": {
+                                                            "type": "ApiConnection",
+                                                            "inputs": {
+                                                                "host": {
+                                                                    "connection": {
+                                                                        "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                                                    }
+                                                                },
+                                                                "method": "put",
+                                                                "body": {
+                                                                    "incidentArmId": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('sentinel_workspace_resource_group'), '/providers/Microsoft.OperationalInsights/workspaces/', parameters('sentinel_workspace_name'), '/providers/Microsoft.SecurityInsights/incidents/',  '@{triggerBody()[''sentinel_incident_id'']}')]",
+                                                                    "status": "Closed",
+                                                                    "classification": {
+                                                                        "ClassificationAndReason": "Undetermined",
+                                                                        "ClassificationReasonText": "Closed in Elastic"
+                                                                    }
+                                                                },
+                                                                "path": "/Incidents"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "default": {
+                                                "actions": {
+                                                    "Update_incident": {
+                                                        "type": "ApiConnection",
+                                                        "inputs": {
+                                                            "host": {
+                                                                "connection": {
+                                                                   "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                                                }
+                                                            },
+                                                            "method": "put",
+                                                            "body": {
+                                                                "incidentArmId": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('sentinel_workspace_resource_group'), '/providers/Microsoft.OperationalInsights/workspaces/', parameters('sentinel_workspace_name'), '/providers/Microsoft.SecurityInsights/incidents/',  '@{triggerBody()[''sentinel_incident_id'']}')]",
+                                                                "severity": "@if(equals(triggerBody()?['case_severity'], 'low'), 'informational', if(equals(triggerBody()?['case_severity'], 'medium'), 'low', if(equals(triggerBody()?['case_severity'], 'high'), 'medium', if(equals(triggerBody()?['case_severity'], 'critical'), 'high', triggerBody()?['case_severity']))))",
+                                                                "status": "@if(equals(triggerBody()?['case_status'],'in-progress'),'Active',\nif(equals(triggerBody()?['case_status'],'open'),'New',triggerBody()?['case_status'] ) )",
+                                                                "classification": "Undetermined"
+                                                            },
+                                                            "path": "/Incidents"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "expression": "@triggerBody()?['case_status']",
+                                            "type": "Switch"
+                                        }
+                                    }
+                                },
+                                "Add_comment_from_Elastic_Security": {
+                                    "case": "add-comment-to-incident",
+                                    "actions": {
+                                        "Add_comment_to_incident_(V3)": {
+                                            "type": "ApiConnection",
+                                            "inputs": {
+                                                "host": {
+                                                    "connection": {
+                                                        "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                                    }
+                                                },
+                                                "method": "post",
+                                                "body": {
+                                                    "incidentArmId": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('sentinel_workspace_resource_group'), '/providers/Microsoft.OperationalInsights/workspaces/', parameters('sentinel_workspace_name'), '/providers/Microsoft.SecurityInsights/incidents/',  '@{triggerBody()[''sentinel_incident_id'']}')]",
+                                                    "message": "@{triggerBody()?['case_comment']}"
+                                                },
+                                                "path": "/Incidents/Comment"
+                                            }
+                                        },
+                                        "Add_comment_response": {
+                                            "runAfter": {
+                                                "Add_comment_to_incident_(V3)": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "Response",
+                                            "kind": "Http",
+                                            "inputs": {
+                                                "statusCode": 200,
+                                                "headers": {
+                                                    "Content-Type": "application/json"
+                                                },
+                                                "body": {
+                                                    "comment_id": "@body('Add_comment_to_incident_(V3)')?['id']"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "default": {
+                                "actions": {
+                                    "Invalid_request_-_Unknown_action": {
+                                        "type": "Response",
+                                        "kind": "Http",
+                                        "inputs": {
+                                            "statusCode": 400
+                                        }
+                                    }
+                                }
+                            },
+                            "expression": "@triggerBody()['action']",
+                            "type": "Switch"
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "azuresentinel": {
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('sentinel_workspace_region'), '/managedApis/azuresentinel')]",
+                                "connectionId": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Web/connections/', parameters('connections_azuresentinel_name'))]",
+                                "connectionName": "[parameters('connections_azuresentinel_name')]"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Logic/workflows",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/connections', parameters('connections_azuresentinel_name'))]"],
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('workflow_example_elastic_get_incident_name')]",
+            "location": "[resourceGroup().location]",
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "Get_Case_Info": {
+                            "type": "Request",
+                            "kind": "Http",
+                            "inputs": {
+                                "method": "GET"
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Get_incident": {
+                            "runAfter": {},
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "body": {
+                                    "incidentArmId": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('sentinel_workspace_resource_group'), '/providers/Microsoft.OperationalInsights/workspaces/', parameters('sentinel_workspace_name'), '/providers/Microsoft.SecurityInsights/incidents/', '@{triggerOutputs()[''Queries''][''sentinel_incident_id'']}')]"
+                                },
+                                "path": "/Incidents"
+                            }
+                        },
+                        "Response": {
+                            "runAfter": {
+                                "Get_incident": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                                "statusCode": 200,
+                                "headers": {
+                                    "Content-Type": "application/json"
+                                },
+                                "body": {
+                                    "title": "@body('Get_incident')?['properties']?['title']",
+                                    "url": "@body('Get_incident')?['properties']?['incidentUrl']"
+                                }
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "azuresentinel": {
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('sentinel_workspace_region'), '/managedApis/azuresentinel')]",
+                                "connectionId": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Web/connections/', parameters('connections_azuresentinel_name'))]",
+                                "connectionName": "[parameters('connections_azuresentinel_name')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
