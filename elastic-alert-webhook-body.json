@@ -1,0 +1,51 @@
+{
+  "alert": {
+    "actionGroup": "{{ alert.actionGroup }}",
+    "actionGroupName": "{{ alert.actionGroupName }}",
+    "actionSubgroup": "{{ alert.actionSubgroup }}",
+    "consecutiveMatches": {{ alert.consecutiveMatches }},
+    "flapping": {{ alert.flapping }},
+    "id": "{{ alert.id }}",
+    "uuid": "{{ alert.uuid }}"
+  },
+  "context": {
+    "alerts": "{{ context.alerts }}",
+    "results_link": "{{ context.results_link }}",
+    "rule": {
+      "description": "{{ context.rule.description }}",
+      "false_positives": "{{ context.rule.false_positives }}",
+      "filters": "{{ context.rule.filters }}",
+      "id": "{{ context.rule.id }}",
+      "investigation_fields": "{{ context.rule.investigation_fields }}",
+      "language": "{{ context.rule.language }}",
+      "max_signals": {{ context.rule.max_signals }},
+      "name": "{{ context.rule.name }}",
+      "output_index": "{{ context.rule.output_index }}",
+      "query": "{{ context.rule.query }}",
+      "references": "{{ context.rule.references }}",
+      "response_actions": "{{ context.rule.response_actions }}",
+      "risk_score": {{ context.rule.risk_score }},
+      "rule_id": "{{ context.rule.rule_id }}",
+      "saved_id": "{{ context.rule.saved_id }}",
+      "severity": "{{ context.rule.severity }}",
+      "threat": "{{ context.rule.threat }}",
+      "timeline_id": "{{ context.rule.timeline_id }}",
+      "timeline_title": "{{ context.rule.timeline_title }}",
+      "type": "{{ context.rule.type }}",
+      "version": {{ context.rule.version }}
+    }
+  },
+  "date": "{{ date }}",
+  "kibanaBaseUrl": "{{ kibanaBaseUrl }}",
+  "rule": {
+    "id": "{{ rule.id }}",
+    "name": "{{ rule.name }}",
+    "params": "{{ rule.params }}",
+    "spaceId": "{{ rule.spaceId }}",
+    "tags": "{{ rule.tags }}",
+    "url": "{{ rule.url }}"
+  },
+  "state": {
+    "signals_count": {{ state.signals_count }}
+  }
+}
